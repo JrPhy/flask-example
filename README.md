@@ -67,7 +67,7 @@ import sys
 sys.path.insert(0, '/var/www/html/flaskapp')
 from app import app as application
 ```
-接著 sudo vi /etc/apache2/sites-available/flaskapp.conf 並加入以下內容
+接著 ```sudo vi /etc/apache2/sites-available/flaskapp.conf``` 並加入以下內容
 ```
 <VirtualHost *:80>
     ServerName {public IP}
