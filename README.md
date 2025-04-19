@@ -4,14 +4,31 @@
 FLASK 開發網路上已經有很多資源，個人主要是參考下面網址進行開發，當然裡面也有些許的 BUG 需要自行排除，本人沒有特別紀錄。\
 https://hackmd.io/@shaoeChen/HJiZtEngG/https%3A%2F%2Fhackmd.io%2Fs%2FS1dY8vepQ
 
-# AWS 使用
-關於 FLASK + AWS EC2 網路上也有許多例子，雖然 aws 內有 EB 可使用，但因為我有用到 python 中某個套件，需要去改 module 內的 import，所以選用 ec2。如果之後是要使用 apache 做服務的話，建議最少使用 small (RAM >= 2GB) 的機器，因為 apache 很吃資源，當記憶體使用量到 80% 左用，LINUX 系統的 SWAP 會一直使用，導致 CPU 使用率居高不下，最後讓整個 instance 當機需要重開。\
-再把你的 FLASK 丟上 EC2 前，記得先去安全群組，把 port 22 限制成自己的 ip 會比較安全。
+## 一、AWS 使用
+關於 FLASK + AWS EC2 網路上也有許多例子，雖然 aws 內有 EB 可使用，但因為我有用到 python 中某個套件，需要去改 module 內的 import，所以選用 ec2。如果之後是要使用 apache 做服務的話，建議最少使用 small (RAM >= 2GB) 的機器，因為 apache 很吃資源，當記憶體使用量到 80% 左用，LINUX 系統的 SWAP 會一直使用，導致 CPU 使用率居高不下，最後讓整個 instance 當機需要重開。再把你的 FLASK 丟上 EC2 前，記得先去安全群組，把 port 22 限制成自己的 ip 會比較安全，之後就可以用 ssh 連進你的實例中。
 
-# APACHE2 部署
-有關 APACHE2 的設定大致上是根據下面網址做的 \
-https://jqn.medium.com/deploy-a-flask-app-on-aws-ec2-1850ae4b0d41 
-在 APACHE2 中的 config 是在 /etc/apache2/apache2.conf 中，網路上 /etc/httpd/conf/httpd.conf 應該是先前的版本。接下來就看你是要走 http(port 80) 還是 https(port 443)，以現在來說通常是走 https，而上面的設定則是走 http，所以把上面網址中編輯 /etc/apache2/sites-enabled/000-default.conf 的設定放到 /etc/apache2/apache2.conf 中就可以了。如果有設定成功，那麼進入 https://{your ip}/index.html 應該會看到 apache 頁面顯示 It works。\
+## 二、 APACHE2 部署
+有關 APACHE2 的設定大致上是根據下面網址做的 https://jqn.medium.com/deploy-a-flask-app-on-aws-ec2-1850ae4b0d41 \
+進入後第一步就是先更新套件，否則可能會無法安裝 apache 跟 wsgi
+```
+sudo apt-get update
+sudo apt-get install apache2
+sudo apt-get install libapache2-mod-wsgi-py3
+```
+裝好之後就可以連入 ec2 實例的公有 ip，不過現在都是預設走 https，但 apache 啟用 https 還需要匯入公私鑰，所以可以先連 http 的網址試試，如果成功就會看到以下圖片 \
+![img](https://ubuntucommunity.s3.us-east-2.amazonaws.com/original/2X/7/771159b35c97e429247aac754ad44bf06cc1efa8.png) \
+在來就是要啟用 https，在此我們可以使用 openssl 來創建公私鑰，第一步就是先裝 openssl，再來啟用 apache 的 ssl 模組，然後重開 apache。
+```
+sudo apt-get install openssl
+sudo a2enmod ssl
+service apache2 restart
+```
+照著以上步驟後會在 ```/etc/ssl``` 裡面看到許多密鑰對，啟用 apache ssl 模組後在 ```/etc/apache2/sites-available``` 中也會產生 ```default-ssl.conf```，裡面就自動幫你連接到 openssl 的密鑰對，此時就可以使用 https 連到實例的公有 ip 了。當然也可以執行以下指令來產生公私鑰，就會產生 server.key，2048 是使用 rsa 長度不少於 2048 位元加密
+```
+openssl genrsa -des3 -out server.key 2048
+```
+在過程中會要求輸入密碼和一些問題，其中密碼一定要牢記，然後就去一些機構做認證。
+在 APACHE2 中的 config 是在 /etc/apache2/apache2.conf 中。接下來就看你是要走 http(port 80) 還是 https(port 443)，以現在來說通常是走 https，而上面的設定則是走 http，所以把上面網址中編輯 /etc/apache2/sites-enabled/000-default.conf 的設定放到 /etc/apache2/apache2.conf 中就可以了。
 之後有改 python 內的 code，記得都要 sudo service apache2 restart 才會有效果，如果只是改前段的 html/js/css 之類的則不需要。
 
 # CLOUDFLARE DNS 設定
